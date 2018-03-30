@@ -1,0 +1,15 @@
+[submodule "third-party/lua-resty-openidc"]
+	path = third-party/lua-resty-openidc
+	url = git@github.com:altexy/lua-resty-openidc.git
+[submodule "third-party/lua-resty-http"]
+	path = third-party/lua-resty-http
+	url = https://github.com/pintsized/lua-resty-http.git
+[submodule "third-party/lua-resty-session"]
+	path = third-party/lua-resty-session
+	url = https://github.com/bungle/lua-resty-session.git
+[submodule "third-party/lua-resty-jwt"]
+	path = third-party/lua-resty-jwt
+	url = https://github.com/SkyLothar/lua-resty-jwt.git
+[submodule "third-party/lua-resty-hmac"]
+	path = third-party/lua-resty-hmac
+	url = https://github.com/jkeys089/lua-resty-hmac.git

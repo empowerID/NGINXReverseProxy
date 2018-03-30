@@ -1,0 +1,107 @@
+worker_processes auto;
+
+error_log logs/error.log info;
+
+events {
+    worker_connections 512;
+}
+
+env CLIENT_ID;
+env CLIENT_SECRET;
+
+http {
+    resolver 8.8.8.8 ipv6=off;
+
+    # cache for discovery metadata documents
+    lua_shared_dict discovery 1m;
+    # cache for JWKs
+    lua_shared_dict jwks 1m;
+
+    server {
+        listen 80;
+
+        location / {
+            access_by_lua_block {
+            function tprint (tbl, indent)
+                if not indent then indent = 0 end
+                local toprint = string.rep(" ", indent) .. "{\r\n"
+                indent = indent + 2
+                for k, v in pairs(tbl) do
+                    toprint = toprint .. string.rep(" ", indent)
+                    if (type(k) == "number") then
+                      toprint = toprint .. "[" .. k .. "] = "
+                    elseif (type(k) == "string") then
+                      toprint = toprint  .. k ..  "= "
+                    end
+                    if (type(v) == "number") then
+                      toprint = toprint .. v .. ",\r\n"
+                    elseif (type(v) == "string") then
+                      toprint = toprint .. "\"" .. v .. "\",\r\n"
+                    elseif (type(v) == "table") then
+                      toprint = toprint .. tprint(v, indent + 2) .. ",\r\n"
+                    else
+                      toprint = toprint .. "\"" .. tostring(v) .. "\",\r\n"
+                    end
+                end
+                toprint = toprint .. string.rep(" ", indent-2) .. "}"
+                return toprint
+            end
+
+            if ngx.var.uri == "/" then
+                -- allow root access without authentication
+                return
+            end
+
+            local opts = {
+                redirect_uri_path = "/oauth2callback",
+                discovery = "https://accounts.google.com/.well-known/openid-configuration",
+                client_id = os.getenv("CLIENT_ID"),
+                client_secret = os.getenv("CLIENT_SECRET"),
+                ssl_verify = "no",
+                logout_path = "/logout",
+                --redirect_after_logout_uri = "/",
+            }
+            local res, err = require("resty.openidc").authenticate(opts)
+
+            if err then
+                ngx.status = 500
+                ngx.say(err)
+                ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
+            end
+
+            --print(tprint(res))
+            print("res.id_token.sub: ", res.id_token.email)
+            ngx.req.set_header("X-Empowerid-Username", res.id_token.email)
+        }
+        proxy_http_version 1.1;
+        proxy_redirect off;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Connection "";
+
+        proxy_pass http://127.0.0.1:8080;
+    }
+}
+
+server {
+    listen 8080;
+
+    location = / {
+        content_by_lua_block {
+           ngx.say("Protected site root page, publicly accessible")
+        }
+    }
+
+    location / {
+        content_by_lua_block {
+            ngx.say("Protected site not root page, require authentication")
+            ngx.say("X-Empowerid-Username: ", ngx.var.http_x_empowerid_username)
+        }
+    }
+
+}
+
+}
+
