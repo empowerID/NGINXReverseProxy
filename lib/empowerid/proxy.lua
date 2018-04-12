@@ -1,5 +1,6 @@
 local cjson_module = require "cjson.safe"
 local http = require"resty.http"
+local config_module = require"empowerid.config"
 
 local SHARED_DICT_NAME = "empowerid_proxy_config"
 local API_CONFIG_KEY = "empowerid_API_CONFIG"
@@ -35,13 +36,27 @@ local function tprint (tbl, indent)
     return toprint
 end
 
-local function try_request_urlencoded(url, opts)
-    opts.body = ngx.encode_args(opts.body)
-    opts.headers["Content-Type"] = "application/x-www-form-urlencoded"
-    opts.headers["X-EmpowerID-API-Key"] = handler.opts.empowerid_api_key
+local function try_get_api_token(opts)
+    local body = {
+        client_id = opts.client_id,
+        client_secret = opts.client_id,
+        grant_type = "password",
+    }
+
+    body = ngx.encode_args(opts.body)
+    print("try_request_urlencoded, body: ", opts.body)
 
     local httpc = http.new()
-    local res, err = httpc:request_uri(url, opts)
+    local res, err = httpc:request_uri(opts.get_results_endpoint, {
+        method = "POST",
+        body = body,
+        headers = {
+            ["Content-Type"] = "application/x-www-form-urlencoded",
+            ["Authorization"] = "Basic " .. opts.token_endpoint_basic_auth,
+            ["X-EmpowerID-API-Key"] = opts.empowerid_api_key
+        }
+    })
+
     if not res then
         error(err)
     end
@@ -53,11 +68,11 @@ local function try_request_urlencoded(url, opts)
         error(err)
     end
     print(tprint(body))
-    res.body = body
-    return res
+    return body.access_token
 end
 
-local function try_get_results(body, access_token)
+local function try_get_results(access_token, body)
+    print("try_get_results, body: ", body)
     local opts = handler.opts
     local httpc = http.new()
     local res, err = httpc:request_uri(opts.get_results_endpoint, {
@@ -87,51 +102,47 @@ end
 local function main_refresh_config()
     local opts = handler.opts
 
-    local res = try_request_urlencoded(opts.token_endpoint, {
-        method = "POST",
-        body = {
-            client_id = opts.client_id,
-            client_secret = opts.client_id,
-            grant_type = "password",
-        },
-        headers = {
-            ["Authorization"] = "Basic " .. opts.token_endpoint_basic_auth,
-        }
-    })
+    local access_token = try_get_api_token(opts)
+    local access_token =
 
-    local access_token = res.body.access_token
+    local res = try_get_results(access_token,
+        "{\"storedProcedure\" : \"ReverseProxy_GetServiceProviders\", \"parameters\" : \"{}\"}")
 
-    local res = try_get_results("{\"storedProcedure\" : \"ReverseProxy_GetServiceProviders\", \"parameters\" : \"{}\"}")
-    local body = res.body
-
-    local serviceProviderIDs = {}
-    for i = 1, #body.Results do
-        if opts.service_providers_guids[body.Results[i][1]] then
-            serviceProviderIDs[#serviceProviderIDs + 1] = body.Results[i][1]
-        end
-    end
-    serviceProviderIDs = table.concat(serviceProviderIDs, ",")
+    local config = config_module.new()
+    local serviceProviderIDs = config(res.body.Results, opts.service_providers_guids)
     print(serviceProviderIDs)
 
-    local res = try_get_results(
+    local res = try_get_results(access_token,
         "{\"storedProcedure\" : \"ReverseProxy_GetApplications\", \"parameters\" : \"{\\\"inputParams\\\":\\\""
         .. serviceProviderIDs .."\\\"}\"}")
-    local body = res.body
 
-    local protectedApplicationResourceID = {}
-    for i = 1, #body.Results do
-        protectedApplicationResourceID[#protectedApplicationResourceID + 1] = body.Results[i][1]
-    end
-    protectedApplicationResourceID = table.concat(protectedApplicationResourceID, ",")
+    local protectedApplicationResourceID = config(res.body.Results)
     print(protectedApplicationResourceID)
 
-    local res = try_get_results(
+    local res = try_get_results(access_token,
         "{\"storedProcedure\" : \"ReverseProxy_GetPages\", \"parameters\" : \"{\\\"inputParams\\\":\\\""
         .. protectedApplicationResourceID .."\\\"}\"}")
-    local body = res.body
+    config = config(res.body.Results)
 
-    local res = try_get_results("{\"storedProcedure\" : \"ReverseProxy_GetRBACRights\", \"parameters\" : \"{}\"}")
-    
+    local res = try_get_results(access_token,
+        "{\"storedProcedure\" : \"ReverseProxy_GetRBACRights\", \"parameters\" : \"{}\"}")
+    local api_config = config(res.body.Results)
+
+    local cjson = cjson_module.new()
+    local api_config_json, err = cjson.encode(res.body)
+    if not api_config_json then
+        error(err)
+    end
+
+    if handler.api_config_json == api_config_json then
+        return
+    end
+
+    handler.api_config_json = api_config_json
+    handler.api_config = api_config
+
+    local shared_config = ngx.shared[SHARED_DICT_NAME]
+    assert(shared_config:set(API_CONFIG_KEY, api_config_json))
 end
 
 local function regular_refresh_config()
