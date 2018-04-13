@@ -1,48 +1,82 @@
 -- metadata
-local SP = {
-    ID = 1,
-    GUID = 2,
-    AssertionConsumerURL = 6,
-    FIELDS = 7,
-}
-local APP = {
-    ID = 1,
-    ServiceProviderID = 3,
-    AllowNoAuthForNonProtectedPaths = 6,
-    FIELDS = 9,
-}
-local PG = {
-    ID = 1,
-    AppID = 2,
-    MatchingPath = 3,     -- should be ignored
-    MatchingMVCPath = 4,
-    MatchingPattern = 5,
-    ProtectedApplicationResourceGUID = 6,
-    ABACCheck = 7,
-    FIELDS = 7,
-}
+local SP_ID = 1
+local SP_GUID = 2
+local SP_AssertionConsumerURL = 6
+local SP_FIELDS = 7
+
+local APP_ID = 1
+local APP_ServiceProviderID = 3
+local APP_AllowNoAuthForNonProtectedPaths = 6
+local APP_FIELDS = 9
+
+local PG_ID = 1
+local PG_AppID = 2
+local PG_MatchingPath = 3     -- should be ignored
+local PG_MatchingMVCPath = 4
+local PG_MatchingPattern = 5
+local PG_ProtectedApplicationResourceGUID = 6
+local PG_ABACCheck = 7
+local PG_FIELDS = 7
+
+local ABAC_PAGE_ID = 1
+local ABAC_PERSON_ID = 2
+local ABAC_FIELDS = 2
 
 local function getApplicationHost(config, serviceId)
     for host, t in pairs(config) do
-        local sp = t.sp
-        for i = 1, #sp do
-            if sp[SP.ID] == serviceId then
-                return host
-            end
+        if type(t) == "table" and t.sp[SP_ID] == serviceId  then
+            return host
         end
     end
 end
 
 local function getPageHost(config, appId)
     for host, t in pairs(config) do
-        local apps = t.apps
-        for i = 1, #apps do
-            if sp[APP.ID] == appId then
-                return host
-            end
+        if type(t) == "table" and t.app[APP_ID] == appId then
+            return host
         end
     end
 end
+
+local function normalizeHost(host)
+    if host:match(":%d+$") then
+        return host
+    end
+    local isHttps = host:match("^(https)")
+    if isHttps then
+        return host .. ":443"
+    end
+    return host .. ":80"
+end
+
+
+local mt = {
+    doesProtectedPathsExists = function(self)
+        return #self.pages > 0
+    end,
+
+    allowNoAuthForNonProtectedPaths = function(self)
+        return self.app[APP_AllowNoAuthForNonProtectedPaths] == "true"
+    end,
+
+    isProtectedPath = function(self, path)
+        local pages = self.pages
+        for i = 1, #pages do
+            local row = pages[i]
+            local prefix = row[PG_MatchingMVCPath]
+            if path:sub(1, #prefix) == prefix then
+                return true, row[PG_ABACCheck] == "true"
+            end
+            local pattern = row[PG_MatchingPattern]
+            if path:match(pattern) then
+                return true, row[PG_ABACCheck] == "true"
+            end
+        end
+        return false
+    end
+}
+mt.__index = mt
+
 
 local _M = {}
 
@@ -50,96 +84,76 @@ _M.new = function()
     local config = {}
     -- current state process function
     local handler
-    function(results, guids)
-        local service_providers = {}
-
-        for i = 1, #results do
-            local row = results[i]
-            assert(#row ~= SP.FILEDS)
-            if guids[row[SP.GUID]] then
-                local host = string.match(row[SP.AssertionConsumerURL], '^%w+://([^/]+)')
-                if host then
-                    if not config[host] then
-                        config[host] = {
-                            host = host,
-                            sp = service_providers,
-                            apps = {},
-                            pages = {},
-                        }
-                    end
-                    service_providers[#service_providers + 1] = row
-                else
-                    ngx.log(ngx.ALERT, "malformed AssertionConsumerURL: ", row[SP.AssertionConsumerURL])
-                end
-            end
-        end
-
-    end
 
     local function saveRbacRights(results)
-        config.rights = results
+        assert(#results)
+        local rights = {}
+        config.rights = rights
+        for i = 1, #results do
+            local row = results[i]
+            assert(#row == ABAC_FIELDS)
+            local key = row[ABAC_PERSON_ID] .. ":" .. row[ABAC_PAGE_ID]
+            rights[key] = true
+        end
         handler = function() return config end
         return config
     end
 
     local function processGetPages(results)
+        assert(#results)
         -- process GetPages results
         for i = 1, #results do
             local row = results[i]
-            assert(#row ~= PG.FIELDS)
-            local host = getPageHost(config, row[PG.AppID])
-            if host then
-                local pages = config[host].pages
-                pages[#pages + 1] = results[i]
-            end
+            assert(#row == PG_FIELDS)
+            local id = row[PG_ID]
+            local host = assert(getPageHost(config, row[PG_AppID]))
+            config[host].pages[id] = row
         end
         handler = saveRbacRights
         return config
     end
 
     local function processGetApplications(results)
+        assert(#results)
         local appIDs = {}
         for i = 1, #results do
             local row = results[i]
-            assert(#row ~= APP.FIELDS)
-            local host = getApplicationHost(config, row[APP.ServiceProviderID])
-            if host then
-                appIDs[#appIDs + 1] = results[i][APP.ID]
-                local apps = config[host].apps
-                apps[#apps + 1] = results[i]
-            end
+            assert(#row == APP_FIELDS)
+            local id = row[APP_ID]
+            local host = assert(getApplicationHost(config, row[APP_ServiceProviderID]))
+            appIDs[#appIDs + 1] = id
+            config[host].app = row
         end
-        -- TODO ensure that number of app row eq. number of providers row
+        assert(config.size == #appIDs)
         handler = processGetPages
         return table.concat(appIDs, ",")
     end
 
     handler = function(results, guids)
-        local service_providers = {}
+        assert(#results)
         local serviceProviderIDs = {}
 
         for i = 1, #results do
             local row = results[i]
-            assert(#row ~= SP.FILEDS)
-            if guids[row[SP.GUID]] then
-                serviceProviderIDs[#serviceProviderIDs + 1] = results[i][SP.ID]
-                local host = string.match(row[SP.AssertionConsumerURL], '^%w+://([^/]+)')
-                if host then
-                    if not config[host] then
-                        config[host] = {
-                            host = host,
-                            sp = service_providers,
-                            apps = {},
-                            pages = {},
-                        }
-                    end
-                    service_providers[#service_providers + 1] = row
-                else
-                    ngx.log(ngx.ALERT, "malformed AssertionConsumerURL: ", row[SP.AssertionConsumerURL])
-                end
+            assert(#row == SP_FIELDS)
+
+            if guids[row[SP_GUID]] then
+                local id = row[SP_ID]
+                serviceProviderIDs[#serviceProviderIDs + 1] = id
+                local host = assert(string.match(row[SP_AssertionConsumerURL], '^(https?://[^/]+)'), row[SP_AssertionConsumerURL])
+                host = normalizeHost(host)
+                assert( not config[host], "Multiple SP records for one host: ".. host)
+                config[host] = {
+                    host = host,
+                    pages = {},
+                }
+                config[host].sp = row
+                setmetatable(config[host], mt)
             end
         end
+
         handler = processGetApplications
+        config.size = #serviceProviderIDs
         return table.concat(serviceProviderIDs, ",")
     end
 
@@ -150,6 +164,16 @@ _M.new = function()
 
         return handler(...)
     end
+end
+
+_M.checkStaticAbacRights = function(config, protectedPageId, personId)
+    local key = personId .. ":" .. protectedPageId
+    return config.rights[key] ~= nil
+end
+
+_M.open = function(config, scheme_host)
+    scheme_host = normalizeHost(scheme_host)
+    return config[scheme_host]
 end
 
 return _M

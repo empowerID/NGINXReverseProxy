@@ -103,7 +103,6 @@ local function main_refresh_config()
     local opts = handler.opts
 
     local access_token = try_get_api_token(opts)
-    local access_token =
 
     local res = try_get_results(access_token,
         "{\"storedProcedure\" : \"ReverseProxy_GetServiceProviders\", \"parameters\" : \"{}\"}")
@@ -209,6 +208,14 @@ local function init_worker_handler(opts)
     -- TODO set defaults
     opts.refresh_timeout = opts.refresh_timeout or 300 --seconds
 
+    -- we got array of GUIDs, for fast access we need a dictionary, convert
+    local guids = opts.service_providers_guids
+    local t = {}
+    for i =1, #guids do
+        t[guids[i]] = true
+    end
+    opts.service_providers_guids = t
+
     handler.opts = opts
 
     if ngx.worker.id() == 0 then
@@ -216,6 +223,88 @@ local function init_worker_handler(opts)
     else
         ngx.timer.every(opts.refresh_timeout, regular_refresh_timer)
     end
+end
+
+local function fatalError(...)
+    local t  = {...}
+    ngx.log(ngx.ERROR, table.concat(t))
+    ngx.exit(502)
+end
+
+local function doliveAbacCheck(protectedPageId, personId)
+    -- TODO - implement, at the moment there is no specs for this step
+    ngx.exit(403) -- forbidden
+end
+
+local function authenticate()
+    local opts = handler.opts
+    local openidc_opts = {
+        redirect_uri_path = opts.redirect_uri_path,
+        discovery = opts.discovery,
+        client_id = opts.client_id,
+        client_secret = opts.client_secret,
+        ssl_verify = "no",
+        logout_path = "/logout", -- TODO
+        --redirect_after_logout_uri = "/",
+    }
+    local res, err = require("resty.openidc").authenticate(opts)
+
+    if err then
+        return fatalError(err)
+    end
+
+    if res.id_token and res.id_token.attrib and res.id_token.attrib.ReverseProxyPersonID then
+        return res.id_token.attrib.ReverseProxyPersonID
+    end
+
+    fatalError("Missed id_token.attrib.ReverseProxyPersonID: ", tprint(res))
+end
+
+local function access_handler()
+    -- TODO check for patterns to skip the authorization
+
+    local api_config = handler.api_config
+    if not api_config then
+        return fatalError("No configuration ready yet")
+    end
+
+    local scheme_host = ngx.var.scheme .. ngx.var.host
+    local config = config_module.open(api_config, scheme_host)
+    if not config then
+        -- TODO what to do if config for this host doesn't exists?
+        --return -- allow
+        return fatalError("No confiration for ", scheme_host) -- deny
+    end
+
+    if not config:doesProtectedPathsExists() then
+        if config:allowNoAuthForNonProtectedPaths() then
+            return
+        end
+        authenticate()
+        return
+    end
+
+    local protectedPageId, mustDoLiveCheck = config:isProtectedPath(ngx.var.uri)
+    if not protectedPageId then
+        if config:allowNoAuthForNonProtectedPaths() then
+            return
+        end
+        authenticate()
+        return
+    end
+
+    -- protected path
+
+    local personId = authenticate()
+
+    if mustDoLiveCheck then
+        return doliveAbacCheck(protectedPageId, personId)
+    end
+
+    if config_module.checkStaticAbacRights(api_config.protectedPageId, personId) then
+        return
+    end
+    ngx.exit(403) -- forbidden
 end
 
 return function(...)
