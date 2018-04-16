@@ -43,8 +43,8 @@ local function try_get_api_token(opts)
         grant_type = "password",
     }
 
-    body = ngx.encode_args(opts.body)
-    print("try_request_urlencoded, body: ", opts.body)
+    body = ngx.encode_args(body)
+    print("try_request_urlencoded, body: ", body)
 
     local httpc = http.new()
     local res, err = httpc:request_uri(opts.get_results_endpoint, {
@@ -231,8 +231,33 @@ local function fatalError(...)
     ngx.exit(502)
 end
 
-local function doliveAbacCheck(protectedPageId, personId)
-    -- TODO - implement, at the moment there is no specs for this step
+local function doliveAbacCheck(protectedPageGuid, personName)
+    print("doliveAbacCheck, protectedPageGuid: ", protectedPageGuid, " personName: ", personName )
+    local opts = handler.opts
+    local httpc = http.new()
+    local body = "{ \"person\":\"" .. personName .. "\", \"page\":\"" .. protectedPageGuid .. "\" }"
+    local res, err = httpc:request_uri(opts.hasaccesstopage_endpoint, {
+        method = "POST",
+        body = body,
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["Authorization"] = "Bearer " .. access_token,
+            ["X-EmpowerID-API-Key"] = opts.empowerid_api_key,
+        }
+    })
+    if not res then
+        error(err)
+    end
+    --print(tprint(res))
+
+    local cjson = cjson_module.new()
+    local body, err = cjson.decode(res.body)
+    if not body then
+        error(err)
+    end
+    print(tprint(body))
+    -- TODO check
+
     ngx.exit(403) -- forbidden
 end
 
@@ -247,17 +272,17 @@ local function authenticate()
         logout_path = "/logout", -- TODO
         --redirect_after_logout_uri = "/",
     }
-    local res, err = require("resty.openidc").authenticate(opts)
+    local res, err = require("resty.openidc").authenticate(openidc_opts)
 
     if err then
         return fatalError(err)
     end
 
-    if res.id_token and res.id_token.attrib and res.id_token.attrib.ReverseProxyPersonID then
-        return res.id_token.attrib.ReverseProxyPersonID
+    if res.id_token and res.id_token.attrib and res.id_token.attrib.username then
+        return res.id_token.attrib.username
     end
 
-    fatalError("Missed id_token.attrib.ReverseProxyPersonID: ", tprint(res))
+    fatalError("Missed id_token.attrib.username: ", tprint(res))
 end
 
 local function access_handler()
@@ -284,8 +309,8 @@ local function access_handler()
         return
     end
 
-    local protectedPageId, mustDoLiveCheck = config:isProtectedPath(ngx.var.uri)
-    if not protectedPageId then
+    local protectedPageId, protectedPageGuid, mustDoLiveCheck = config:isProtectedPath(ngx.var.uri)
+    if not protectedPageGuid then
         if config:allowNoAuthForNonProtectedPaths() then
             return
         end
@@ -295,10 +320,10 @@ local function access_handler()
 
     -- protected path
 
-    local personId = authenticate()
+    local personName = authenticate()
 
     if mustDoLiveCheck then
-        return doliveAbacCheck(protectedPageId, personId)
+        return doliveAbacCheck(protectedPageGuid, personName)
     end
 
     if config_module.checkStaticAbacRights(api_config.protectedPageId, personId) then
