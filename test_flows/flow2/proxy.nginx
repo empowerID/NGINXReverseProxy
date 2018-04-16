@@ -1,0 +1,72 @@
+worker_processes auto;
+
+error_log logs/error.log info;
+
+events {
+    worker_connections 512;
+}
+
+env CLIENT_ID;
+env CLIENT_SECRET;
+
+http {
+    resolver 8.8.8.8 ipv6=off;
+
+    # cache for discovery metadata documents
+    lua_shared_dict discovery 1m;
+    # cache for JWKs
+    lua_shared_dict jwks 1m;
+
+    server {
+        listen 80;
+
+        init_worker_by_lua {
+            local opts = {
+                redirect_uri_path = "/oauth2callback",
+                discovery = "https://ipg.empowersso.com/oauth/.well-known/openid-configuration",
+                client_id = os.getenv("CLIENT_ID"),
+                client_secret = os.getenv("CLIENT_SECRET"),
+                ssl_verify = "no",
+                logout_path = "/logout",
+                service_providers_guids = {
+                    "F1B420D1-B6B9-4C92-B383-4AA4A6CB8643",
+                    "068CD819-655D-4414-A976-3CCF7377A2E5",
+                },
+                hasaccesstopage_endpoint = "http://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
+                empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
+                get_results_endpoint = "http://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
+                token_endpoint_basic_auth = "cGF0cmljazpwQCQkdzByZA==",
+
+            }
+            require"empowerid.proxy"(opts)
+        }
+
+        location / {
+            access_by_lua_block {
+                require"empowerid.proxy"()
+            }
+            proxy_http_version 1.1;
+            proxy_redirect off;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Connection "";
+
+            proxy_pass http://127.0.0.1:8080;
+    }
+}
+
+server {
+    listen 8080;
+
+    location = / {
+        content_by_lua_block {
+           ngx.say("Protected site root page")
+        }
+    }
+
+}
+
+}
+
