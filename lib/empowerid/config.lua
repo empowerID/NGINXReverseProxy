@@ -52,7 +52,10 @@ end
 
 local mt = {
     doesProtectedPathsExists = function(self)
-        return #self.pages > 0
+        for k, v in pairs(self.pages) do
+            return true
+        end
+        return false
     end,
 
     allowNoAuthForNonProtectedPaths = function(self)
@@ -61,15 +64,14 @@ local mt = {
 
     isProtectedPath = function(self, path)
         local pages = self.pages
-        for i = 1, #pages do
-            local row = pages[i]
+        for id , row in pairs(pages) do
             local prefix = row[PG_MatchingMVCPath]
-            if path:sub(1, #prefix) == prefix then
-                return true, row[PG_ABACCheck] == "true"
+            if type(prefix) == "string" and #prefix > 0 and path:sub(1, #prefix) == prefix then
+                return id, row[PG_ABACCheck] == "true"
             end
             local pattern = row[PG_MatchingPattern]
-            if path:match(pattern) then
-                return true, row[PG_ABACCheck] == "true"
+            if type(pattern) == "string" and #pattern > 0 and path:match(pattern) then
+                return id, row[PG_ABACCheck] == "true"
             end
         end
         return false

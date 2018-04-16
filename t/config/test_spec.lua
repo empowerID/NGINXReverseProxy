@@ -179,31 +179,34 @@ test("test config.new() - config builder", function()
 
     local api_config = config()
 
---[[
-    local c1 = config_module.open("https://sso.empoweriam.com:443")
+    local c1 = config_module.open(api_config, "https://sso.empoweriam.com")
+
     assert(c1:doesProtectedPathsExists())
     assert.is_false(c1:allowNoAuthForNonProtectedPaths())
 
     local id1, mustDoLiveCheck = c1:isProtectedPath("/test")
-    assert(id)
+    assert(id1)
     assert.is_false(mustDoLiveCheck)
-    assert(c1:isProtectedPath("/testing"))
-    assert.is_false(c1:isProtectedPath("/bla-bla"))
-
-    local id2, mustDoLiveCheck = c1:isProtectedPath("/regexp")
-    assert(id)
-    assert(mustDoLiveCheck)
-    assert.is_false(c1:isProtectedPath("/bla-bla/regexp"))
-
     assert(checkStaticAbacRights(api_config, id1, 1))
     assert.is_false(checkStaticAbacRights(api_config, id1, 777))
 
-    local c2 = config_module.open("https://sso.empoweriam.com:8080")
+    local id11 = c1:isProtectedPath("/testing")
+    assert(id11)
+    local id12 = c1:isProtectedPath("/bla-bla")
+    assert.is_false(id12)
+
+    local id2, mustDoLiveCheck = c1:isProtectedPath("/regexp")
+    assert(id2)
+    assert(mustDoLiveCheck)
+    assert.is_false(c1:isProtectedPath("/bla-bla/regexp"))
+
+
+    local c2 = config_module.open(api_config, "https://sso.empoweriam.com:8080")
     assert.is_false(c2:doesProtectedPathsExists())
     assert.is_false(c2:allowNoAuthForNonProtectedPaths())
 
-    local c3 = config_module.open("http://empoweriam.com:80")
+    local c3 = config_module.open(api_config, "http://empoweriam.com:80")
     assert.is_false(c3:doesProtectedPathsExists())
-    assert(c2:allowNoAuthForNonProtectedPaths())
-]]
+    assert(c3:allowNoAuthForNonProtectedPaths())
+
 end)
