@@ -57,7 +57,7 @@ return {
             [4] = "/prefix",
             [5] = "",
             [6] = "20c75f42-0b3a-4c3e-8cca-a10aebb43b1c",
-            [7] = "false",
+            [7] = "true",
         }
     },
     RBACR = {
@@ -73,5 +73,8 @@ return {
             [1] = 3877464,
             [2] = 1,
         },
+    },
+    NAME_TO_ID = {
+        alexander = 20,
     }
 }

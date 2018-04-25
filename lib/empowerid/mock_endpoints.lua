@@ -186,6 +186,10 @@ local function find_page_by_guid(guid)
     end
 end
 
+local function get_person_id(person_name)
+    return model.NAME_TO_ID[person_name]
+end
+
 _M.hasaccesstopage = function()
     assert(model)
     assert(ngx.get_phase() == "content")
@@ -204,11 +208,17 @@ _M.hasaccesstopage = function()
     local person_name = body_table.person
     local page_guid = body_table.page
 
-    -- we assume that only rights only for one user present within model
     local page_id = find_page_by_guid(page_guid)
     if not page_id then
         ngx.header["Content-Type"] = "text/plain; charset=utf-8"
-        ngx.say("Page not found")
+        ngx.say("Page not found: ", page_guid)
+        return
+    end
+
+    local person_id = get_person_id(person_name)
+    if not person_id then
+        ngx.header["Content-Type"] = "text/plain; charset=utf-8"
+        ngx.say("Person not found: ", person_name)
         return
     end
 
@@ -217,14 +227,15 @@ _M.hasaccesstopage = function()
 
     local rbacr = model.RBACR
     for i = 1, #rbacr do
-        if rbacr[i][ABAC_PAGE_ID] == page_id then
+        local row = rbacr[i]
+        if row[ABAC_PAGE_ID] == page_id and row[ABAC_PERSON_ID] == person_id then
             local resp_body = cjson.encode(true)
-            ngx.say(resp_body)
+            ngx.print(resp_body)
             return
         end
     end
     local resp_body = cjson.encode(false)
-    ngx.say(resp_body)
+    ngx.print(resp_body)
 end
 
 _M.new = function(m)

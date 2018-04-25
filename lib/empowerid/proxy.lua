@@ -147,6 +147,7 @@ local function main_refresh_config()
 
     local shared_config = ngx.shared[SHARED_DICT_NAME]
     assert(shared_config:set(API_CONFIG_KEY, api_config_json))
+    assert(shared_config:set("access_token", access_token))
 end
 
 local function regular_refresh_config()
@@ -239,6 +240,10 @@ end
 local function doliveAbacCheck(protectedPageGuid, personName)
     print("doliveAbacCheck, protectedPageGuid: ", protectedPageGuid, " personName: ", personName )
     local opts = handler.opts
+
+    local shared_config = ngx.shared[SHARED_DICT_NAME]
+    local access_token = shared_config:get("access_token")
+
     local httpc = http.new()
     local body = "{ \"person\":\"" .. personName .. "\", \"page\":\"" .. protectedPageGuid .. "\" }"
     local res, err = httpc:request_uri(opts.hasaccesstopage_endpoint, {
@@ -253,15 +258,12 @@ local function doliveAbacCheck(protectedPageGuid, personName)
     if not res then
         error(err)
     end
-    --print(tprint(res))
+    print(tprint(res))
 
-    local cjson = cjson_module.new()
-    local body, err = cjson.decode(res.body)
-    if not body then
-        error(err)
+    local body = res.body
+    if body == "true" then
+        return
     end
-    print(tprint(body))
-    -- TODO check
 
     ngx.exit(403) -- forbidden
 end
@@ -315,6 +317,9 @@ local function access_handler()
     end
 
     local protectedPageId, protectedPageGuid, mustDoLiveCheck = config:isProtectedPath(ngx.var.uri)
+    print("protectedPageId: ", protectedPageId)
+    print("protectedPageGuid: ", protectedPageGuid)
+    print("mustDoLiveCheck: ", mustDoLiveCheck)
     if not protectedPageGuid then
         if config:allowNoAuthForNonProtectedPaths() then
             return
@@ -326,12 +331,14 @@ local function access_handler()
     -- protected path
 
     local personName, personId = authenticate()
+    print("personName: ", personName)
+    print("personId: ", personId)
 
     if mustDoLiveCheck then
         return doliveAbacCheck(protectedPageGuid, personName)
     end
 
-    if config_module.checkStaticAbacRights(protectedPageId, personId) then
+    if config_module.checkStaticAbacRights(api_config, protectedPageId, personId) then
         return
     end
     ngx.exit(403) -- forbidden

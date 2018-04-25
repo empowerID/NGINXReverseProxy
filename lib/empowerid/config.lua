@@ -63,14 +63,18 @@ local mt = {
     end,
 
     isProtectedPath = function(self, path)
+        print("isProtectedPath: ", path)
         local pages = self.pages
         for id , row in pairs(pages) do
+            print("page id: ", id)
             local prefix = row[PG_MatchingMVCPath]
+            print("prefix: ", prefix)
             if type(prefix) == "string" and #prefix > 0 and path:sub(1, #prefix) == prefix then
                 return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
             end
             local pattern = row[PG_MatchingPattern]
-            if type(pattern) == "string" and #pattern > 0 and path:match(pattern) then
+            print("pattern: ", pattern)
+            if type(pattern) == "string" and #pattern > 0 and ngx.re.find(path, pattern, "jJo") then
                 return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
             end
         end
@@ -88,6 +92,7 @@ _M.new = function()
     local handler
 
     local function saveRbacRights(results)
+        print"saveRbacRights"
         local rights = {}
         config.rights = rights
 
@@ -100,6 +105,7 @@ _M.new = function()
             local row = results[i]
             assert(#row == ABAC_FIELDS)
             local key = row[ABAC_PERSON_ID] .. ":" .. row[ABAC_PAGE_ID]
+            print(key)
             rights[key] = true
         end
         handler = function() return config end

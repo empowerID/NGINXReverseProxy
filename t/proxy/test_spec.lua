@@ -117,3 +117,112 @@ test("Protected page exist, not match (by prefix), AllowNoAuthForNonProtectedPat
     print_logs = false
 end)
 
+test("Protected page exist, match (by prefix), ABACCheck = false, static right not present", function()
+    local nginx_id = docker_run_nginx(nil, "model4")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/prefix")
+    assert(err:find("HTTP/1.1 403", 1, true))
+    assert(err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)
+
+test("Protected page exist, match (by prefix), ABACCheck = false, static right ok", function()
+    local nginx_id = docker_run_nginx(nil, "model5")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/prefix")
+    assert(res:find("Protected site page", 1, true))
+    assert(err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)
+
+test("Protected page exist, match (by prefix), ABACCheck = true, live right check fail", function()
+    local nginx_id = docker_run_nginx(nil, "model6")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/prefix")
+    assert(err:find("HTTP/1.1 403", 1, true))
+    assert(err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)
+
+test("Protected page exist, match (by prefix), ABACCheck = true, live right check ok", function()
+    local nginx_id = docker_run_nginx(nil, "model7")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/prefix")
+    assert(res:find("Protected site page", 1, true))
+    assert(err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)
+
+test("Protected page exist, match (by regexp), ABACCheck = true, live right check ok", function()
+    local nginx_id = docker_run_nginx(nil, "model7")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/folder/123/page")
+    assert(res:find("Protected site page", 1, true))
+    assert(err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)
