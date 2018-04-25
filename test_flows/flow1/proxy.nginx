@@ -54,7 +54,7 @@ http {
 
             local opts = {
                 redirect_uri_path = "/oauth2callback",
-                discovery = "https://accounts.google.com/.well-known/openid-configuration",
+                discovery = "https://ipg.empowersso.com/oauth/.well-known/openid-configuration",
                 client_id = os.getenv("CLIENT_ID"),
                 client_secret = os.getenv("CLIENT_SECRET"),
                 ssl_verify = "no",
@@ -72,6 +72,27 @@ http {
             --print(tprint(res))
             print("res.id_token.sub: ", res.id_token.email)
             ngx.req.set_header("X-Empowerid-Username", res.id_token.email)
+
+            local http = require "resty.http"
+            local httpc = http.new()
+            local body = {
+                client_id = os.getenv("CLIENT_ID"),
+                client_secret = os.getenv("CLIENT_SECRET"),
+                grant_type = "password",
+            }
+            local res, err = httpc:request_uri("https://sso.empoweriam.com/oauth/v2/token", {
+                method = "POST",
+                body = ngx.encode_args(body),
+                headers = {
+                    ["Content-Type"] = "application/x-www-form-urlencoded",
+                    ["Authorization"] = "Basic cGF0cmljazpwQCQkdzByZA==",
+                    ["X-EmpowerID-API-Key"] = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
+                }
+            })
+            if not res then
+                error(err)
+            end
+            print(tprint(res))
         }
         proxy_http_version 1.1;
         proxy_redirect off;

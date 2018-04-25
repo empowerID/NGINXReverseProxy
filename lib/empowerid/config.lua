@@ -67,11 +67,11 @@ local mt = {
         for id , row in pairs(pages) do
             local prefix = row[PG_MatchingMVCPath]
             if type(prefix) == "string" and #prefix > 0 and path:sub(1, #prefix) == prefix then
-                return id, row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
+                return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
             end
             local pattern = row[PG_MatchingPattern]
             if type(pattern) == "string" and #pattern > 0 and path:match(pattern) then
-                return id, row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
+                return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
             end
         end
         return false
@@ -88,9 +88,14 @@ _M.new = function()
     local handler
 
     local function saveRbacRights(results)
-        assert(#results)
         local rights = {}
         config.rights = rights
+
+        if results == nil or #results == 0 then
+            handler = function() return config end
+            return config
+        end
+
         for i = 1, #results do
             local row = results[i]
             assert(#row == ABAC_FIELDS)
@@ -102,21 +107,28 @@ _M.new = function()
     end
 
     local function processGetPages(results)
-        assert(#results)
+        if results == nil or #results == 0 then
+            handler = saveRbacRights
+            return config
+        end
+
         -- process GetPages results
         for i = 1, #results do
             local row = results[i]
             assert(#row == PG_FIELDS)
             local id = row[PG_ID]
             local host = assert(getPageHost(config, row[PG_AppID]))
-            config[host].pages[id] = row
+            config[host].pages[tostring(id)] = row
         end
         handler = saveRbacRights
         return config
     end
 
     local function processGetApplications(results)
-        assert(#results)
+        if results == nil or #results == 0 then
+            handler = processGetPages
+            return ""
+        end
         local appIDs = {}
         for i = 1, #results do
             local row = results[i]
@@ -144,6 +156,7 @@ _M.new = function()
                 serviceProviderIDs[#serviceProviderIDs + 1] = id
                 local host = assert(string.match(row[SP_AssertionConsumerURL], '^(https?://[^/]+)'), row[SP_AssertionConsumerURL])
                 host = normalizeHost(host)
+                print(host)
                 assert( not config[host], "Multiple SP records for one host: ".. host)
                 config[host] = {
                     host = host,

@@ -39,7 +39,7 @@ end
 local function try_get_api_token(opts)
     local body = {
         client_id = opts.client_id,
-        client_secret = opts.client_id,
+        client_secret = opts.client_secret,
         grant_type = "password",
     }
 
@@ -47,7 +47,7 @@ local function try_get_api_token(opts)
     print("try_request_urlencoded, body: ", body)
 
     local httpc = http.new()
-    local res, err = httpc:request_uri(opts.get_results_endpoint, {
+    local res, err = httpc:request_uri(opts.token_endpoint, {
         method = "POST",
         body = body,
         headers = {
@@ -118,17 +118,22 @@ local function main_refresh_config()
     local protectedApplicationResourceID = config(res.body.Results)
     print(protectedApplicationResourceID)
 
-    local res = try_get_results(access_token,
-        "{\"storedProcedure\" : \"ReverseProxy_GetPages\", \"parameters\" : \"{\\\"inputParams\\\":\\\""
-        .. protectedApplicationResourceID .."\\\"}\"}")
-    config = config(res.body.Results)
+    if protectedApplicationResourceID then
+        local res = try_get_results(access_token,
+            "{\"storedProcedure\" : \"ReverseProxy_GetPages\", \"parameters\" : \"{\\\"inputParams\\\":\\\""
+            .. protectedApplicationResourceID .."\\\"}\"}")
+        config(res.body.Results)
+    else
+        config(nil)
+    end
 
     local res = try_get_results(access_token,
         "{\"storedProcedure\" : \"ReverseProxy_GetRBACRights\", \"parameters\" : \"{}\"}")
     local api_config = config(res.body.Results)
 
+    --print(tprint(api_config))
     local cjson = cjson_module.new()
-    local api_config_json, err = cjson.encode(res.body)
+    local api_config_json, err = cjson.encode(api_config)
     if not api_config_json then
         error(err)
     end
@@ -199,9 +204,9 @@ end
 local function init_worker_handler(opts)
     -- TODO validate opts
     assert(opts.service_providers_guids)
-    if type(opts.service_providers_guids) == string then
+    if type(opts.service_providers_guids) == "string" then
         opts.service_providers_guids = { [opts.service_providers_guids] = true }
-    elseif type(opts.service_providers_guids) ~= table then
+    elseif type(opts.service_providers_guids) ~= "table" then
         error("Bad service_providers_guids type: " .. type(opts.service_providers_guids) .. " should be string or table")
     end
 
@@ -227,7 +232,7 @@ end
 
 local function fatalError(...)
     local t  = {...}
-    ngx.log(ngx.ERROR, table.concat(t))
+    ngx.log(ngx.ERR, table.concat(t))
     ngx.exit(502)
 end
 
@@ -278,8 +283,8 @@ local function authenticate()
         return fatalError(err)
     end
 
-    if res.id_token and res.id_token.attrib and res.id_token.attrib.username then
-        return res.id_token.attrib.username
+    if res.id_token and res.id_token.attrib and res.id_token.attrib.username  and res.id_token.attrib.ReverseProxyPersonID then
+        return res.id_token.attrib.username, res.id_token.attrib.ReverseProxyPersonID
     end
 
     fatalError("Missed id_token.attrib.username: ", tprint(res))
@@ -293,12 +298,12 @@ local function access_handler()
         return fatalError("No configuration ready yet")
     end
 
-    local scheme_host = ngx.var.scheme .. ngx.var.host
+    local scheme_host = ngx.var.scheme .. "://" .. ngx.var.host
     local config = config_module.open(api_config, scheme_host)
     if not config then
         -- TODO what to do if config for this host doesn't exists?
         --return -- allow
-        return fatalError("No confiration for ", scheme_host) -- deny
+        return fatalError("No configuration for ", scheme_host) -- deny
     end
 
     if not config:doesProtectedPathsExists() then
@@ -320,13 +325,13 @@ local function access_handler()
 
     -- protected path
 
-    local personName = authenticate()
+    local personName, personId = authenticate()
 
     if mustDoLiveCheck then
         return doliveAbacCheck(protectedPageGuid, personName)
     end
 
-    if config_module.checkStaticAbacRights(api_config.protectedPageId, personId) then
+    if config_module.checkStaticAbacRights(protectedPageId, personId) then
         return
     end
     ngx.exit(403) -- forbidden

@@ -17,10 +17,12 @@ http {
     # cache for JWKs
     lua_shared_dict jwks 1m;
 
+    lua_shared_dict empowerid_proxy_config 10m;
+
     server {
         listen 80;
 
-        init_worker_by_lua {
+        init_worker_by_lua_block {
             local opts = {
                 redirect_uri_path = "/oauth2callback",
                 discovery = "https://ipg.empowersso.com/oauth/.well-known/openid-configuration",
@@ -35,6 +37,7 @@ http {
                 hasaccesstopage_endpoint = "http://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
                 empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
                 get_results_endpoint = "http://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
+                token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
                 token_endpoint_basic_auth = "cGF0cmljazpwQCQkdzByZA==",
 
             }

@@ -1,0 +1,42 @@
+worker_processes 1;
+
+error_log logs/error.log info;
+
+events {
+    worker_connections 512;
+}
+
+http {
+    server {
+        listen 80;
+
+        location = /load_model {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").new(
+                    require"empowerid.model"
+                )
+                ngx.say("Model loaded")
+            }
+        }
+
+        location = /get_token {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").get_token_endpoint()
+            }
+        }
+
+        location = /get_results {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").get_results_endpoint()
+            }
+        }
+
+        location = /hasaccesstopage {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").hasaccesstopage()
+            }
+        }
+
+    }
+}
+

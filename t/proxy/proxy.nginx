@@ -1,0 +1,91 @@
+worker_processes 1; # one is importnt here! we load a model by http request
+
+error_log logs/error.log info;
+
+events {
+    worker_connections 512;
+}
+
+http {
+    resolver 8.8.8.8 ipv6=off;
+
+    lua_shared_dict empowerid_proxy_config 10m;
+
+    init_worker_by_lua_block {
+        local model = require"empowerid.model"
+        require("empowerid.mock_endpoints").new(
+                    model
+                )
+
+        local opts = {
+            client_id = model.client_id,
+            client_secret = model.client_secret,
+            service_providers_guids = {
+                "6126B94E-BB0B-4EB2-BC83-5452585831BF",
+                "068CD819-655D-4414-A976-3CCF7377A2E5",
+            },
+            hasaccesstopage_endpoint = "http://127.0.0.1:7777/hasaccesstopage",
+            empowerid_api_key = model.X_EmpowerID_API_Key,
+            get_results_endpoint = "http://127.0.0.1:7777/get_results",
+            token_endpoint = "http://127.0.0.1:7777/get_token",
+            token_endpoint_basic_auth = model.basic_auth
+        }
+        require"empowerid.proxy"(opts)
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            access_by_lua_block {
+                require"empowerid.proxy"()
+            }
+            proxy_http_version 1.1;
+            proxy_redirect off;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Connection "";
+
+            proxy_pass http://127.0.0.1:8080;
+        }
+    }
+
+    # emulate protected site
+    server {
+        listen 8080;
+
+        location / {
+            content_by_lua_block {
+                ngx.say("Protected site page ", ngx.var.request_uri)
+            }
+        }
+    }
+
+    # emulate API
+    server {
+        listen 7777;
+
+        location = /get_token {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").get_token_endpoint()
+            }
+        }
+
+        location = /get_results {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").get_results_endpoint()
+            }
+        }
+
+        location = /hasaccesstopage {
+            content_by_lua_block {
+                require("empowerid.mock_endpoints").hasaccesstopage()
+          }
+        }
+
+    }
+}
+
+
