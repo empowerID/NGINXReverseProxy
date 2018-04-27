@@ -22,6 +22,13 @@ local ABAC_PAGE_ID = 1
 local ABAC_PERSON_ID = 2
 local ABAC_FIELDS = 2
 
+-- emulate ngx.re.find to be able to run standalone
+if not ngx then
+    ngx = {}
+    ngx.re = {}
+    ngx.re.find = function(subject, pattern, ignore) return subject:match(pattern) end
+end
+
 local function getApplicationHost(config, serviceId)
     for host, t in pairs(config) do
         if type(t) == "table" and t.sp[SP_ID] == serviceId  then

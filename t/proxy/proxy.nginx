@@ -28,7 +28,8 @@ http {
             empowerid_api_key = model.X_EmpowerID_API_Key,
             get_results_endpoint = "http://127.0.0.1:7777/get_results",
             token_endpoint = "http://127.0.0.1:7777/get_token",
-            token_endpoint_basic_auth = model.basic_auth
+            token_endpoint_basic_auth = model.basic_auth,
+            page_skip_regexp = "\\.(jpe?g|png|gif|ico)$",
         }
         require"empowerid.proxy"(opts)
     }

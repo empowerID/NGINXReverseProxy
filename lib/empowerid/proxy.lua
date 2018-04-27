@@ -105,6 +105,9 @@ local function main_refresh_config()
     local access_token = try_get_api_token(opts)
 
     local res = try_get_results(access_token,
+    "{\"storedProcedure\" : \"ReverseProxy_ProtectedApplicationResource_SetWamShortIDs\", \"parameters\" : \"{}\"}")
+
+    local res = try_get_results(access_token,
         "{\"storedProcedure\" : \"ReverseProxy_GetServiceProviders\", \"parameters\" : \"{}\"}")
 
     local config = config_module.new()
@@ -293,7 +296,14 @@ local function authenticate()
 end
 
 local function access_handler()
-    -- TODO check for patterns to skip the authorization
+    -- check for patterns to skip the authorization
+    local page_skip_regexp = handler.opts.page_skip_regexp
+    local uri = ngx.var.uri
+    if page_skip_regexp and #page_skip_regexp > 0 then
+        if ngx.re.match(uri, page_skip_regexp) then
+            return
+        end
+    end
 
     local api_config = handler.api_config
     if not api_config then
@@ -316,7 +326,7 @@ local function access_handler()
         return
     end
 
-    local protectedPageId, protectedPageGuid, mustDoLiveCheck = config:isProtectedPath(ngx.var.uri)
+    local protectedPageId, protectedPageGuid, mustDoLiveCheck = config:isProtectedPath(uri)
     print("protectedPageId: ", protectedPageId)
     print("protectedPageGuid: ", protectedPageGuid)
     print("mustDoLiveCheck: ", mustDoLiveCheck)

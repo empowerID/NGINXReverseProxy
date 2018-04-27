@@ -226,3 +226,25 @@ test("Protected page exist, match (by regexp), ABACCheck = true, live right chec
 
     print_logs = false
 end)
+
+test("Skip auth. by regex pattern", function()
+    local nginx_id = docker_run_nginx(nil, "model7")
+
+    local print_logs = true
+    finally(function()
+        -- useful for debug
+        if print_logs then
+            sh("docker logs ", nginx_id)
+        end
+
+        sh("docker stop ", nginx_id)
+    end)
+
+    local nginx_port = stdout("docker inspect --format='{{(index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort}}' ",nginx_id)
+
+    local res, err = sh_ex("curl -v -sS -m 5 -L  127.0.0.1:", nginx_port, "/folder/123/page.jpg")
+    assert(res:find("Protected site page", 1, true))
+    assert(not err:find("X-my-auth", 1, true))
+
+    print_logs = false
+end)

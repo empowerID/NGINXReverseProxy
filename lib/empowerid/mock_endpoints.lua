@@ -71,6 +71,13 @@ local function split_by(text, sep)
 end
 
 local get_results_handlers = {
+    ReverseProxy_ProtectedApplicationResource_SetWamShortIDs = function()
+        return {
+            Errors = cjson_null,
+            Results = {}
+        }
+    end,
+
     ReverseProxy_GetServiceProviders = function()
         if #model.SP > 0 then
             return {
