@@ -50,6 +50,7 @@ local function try_get_api_token(opts)
     local res, err = httpc:request_uri(opts.token_endpoint, {
         method = "POST",
         body = body,
+        ssl_verify = false,
         headers = {
             ["Content-Type"] = "application/x-www-form-urlencoded",
             ["Authorization"] = "Basic " .. opts.token_endpoint_basic_auth,
@@ -60,7 +61,7 @@ local function try_get_api_token(opts)
     if not res then
         error(err)
     end
-    --print(tprint(res))
+    print(tprint(res))
 
     local cjson = cjson_module.new()
     local body, err = cjson.decode(res.body)
@@ -78,6 +79,7 @@ local function try_get_results(access_token, body)
     local res, err = httpc:request_uri(opts.get_results_endpoint, {
         method = "POST",
         body = body,
+        ssl_verify = false,
         headers = {
             ["Content-Type"] = "application/json",
             ["Authorization"] = "Bearer " .. access_token,
@@ -252,6 +254,7 @@ local function doliveAbacCheck(protectedPageGuid, personName)
     local res, err = httpc:request_uri(opts.hasaccesstopage_endpoint, {
         method = "POST",
         body = body,
+        ssl_verify = false,
         headers = {
             ["Content-Type"] = "application/json",
             ["Authorization"] = "Bearer " .. access_token,
