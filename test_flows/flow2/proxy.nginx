@@ -30,9 +30,10 @@ http {
             service_providers_guids = {
                 "9340A12F-2A7A-4D9F-AD19-6E0699759511",
             },
-            hasaccesstopage_endpoint = "http://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
+            hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
             empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
-            get_results_endpoint = "http://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
+            get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
+            token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
             token_endpoint_basic_auth = "cGF0cmljazpwQCQkdzByZA==",
         }
         require"empowerid.proxy"(opts)

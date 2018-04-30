@@ -4,10 +4,10 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GIT_ROOT="$DIR/../.."
 
-docker stop empowerid_flow1 && true
+docker stop empowerid_flow2 && docker rm stop empowerid_flow2 && true
 
-docker run -d --rm -p 80:80 \
-    --name empowerid_flow1 \
+docker run -d -p 80:80 \
+    --name empowerid_flow2 \
     -e CLIENT_ID -e CLIENT_SECRET \
     -v ${DIR}/proxy.nginx:/usr/local/openresty/nginx/conf/nginx.conf:ro \
     -v ${GIT_ROOT}/lib/empowerid/config.lua:/usr/local/openresty/lualib/empowerid/config.lua:ro \
