@@ -29,8 +29,8 @@ http {
             ssl_verify = "no",
             logout_path = "/logout",
             service_providers_guids = {
-    "927BF3D4-1CCA-47D3-8EDE-47994CD78B62",
-    },
+                "927BF3D4-1CCA-47D3-8EDE-47994CD78B62",
+              },
             hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
             empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
             get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
@@ -47,8 +47,8 @@ http {
 
         location / {
             access_by_lua_block {
-            require"empowerid.proxy"()
-        }
+                require"empowerid.proxy"()
+            }
             proxy_http_version 1.1;
             proxy_redirect off;
             proxy_set_header X-Forwarded-Host $host;
