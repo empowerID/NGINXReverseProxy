@@ -32,7 +32,7 @@ return {
             [3] = 1076,
             [4] = "userdata: NULL",
             [5] = "userdata: NULL",
-            [6] = "false",
+            [6] = false,
             [7] = "111112",
             [8] = "false",
             [9] = "userdata: NULL",
@@ -43,7 +43,7 @@ return {
             [3] = 1089,
             [4] = "userdata: NULL",
             [5] = "userdata: NULL",
-            [6] = "false",
+            [6] = false,
             [7] = "1",
             [8] = "true",
             [9] = "NULL",
@@ -57,7 +57,7 @@ return {
             [4] = "/prefix",
             [5] = "",
             [6] = "20c75f42-0b3a-4c3e-8cca-a10aebb43b1c",
-            [7] = "true",
+            [7] = true,
         }
     },
     RBACR = {

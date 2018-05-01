@@ -30,7 +30,8 @@ http {
             ssl_verify = "no",
             logout_path = "/logout",
             service_providers_guids = {
-                "927BF3D4-1CCA-47D3-8EDE-47994CD78B62",
+                -- "927BF3D4-1CCA-47D3-8EDE-47994CD78B62",
+                "C3214906-6EBD-483F-B36A-EDC7684A2F0D",
               },
             hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
             empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
