@@ -1,4 +1,4 @@
-worker_processes auto;
+worker_processes 2;
 
 error_log logs/error.log debug;
 
@@ -20,24 +20,25 @@ http {
     lua_shared_dict empowerid_proxy_config 10m;
 
     init_worker_by_lua_block {
-        local opts = {
-            redirect_uri_path = "/oauth2callback",
+    local opts = {
+    redirect_uri_path = "/oauth2callback",
             discovery = "https://ipg.empowersso.com/oauth/.well-known/openid-configuration",
+            discovery = "https://sso.empoweriam.com/oauth/.well-known/openid-configuration",
             client_id = os.getenv("CLIENT_ID"),
             client_secret = os.getenv("CLIENT_SECRET"),
             ssl_verify = "no",
             logout_path = "/logout",
             service_providers_guids = {
-                "9340A12F-2A7A-4D9F-AD19-6E0699759511",
-            },
+    "927BF3D4-1CCA-47D3-8EDE-47994CD78B62",
+    },
             hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
             empowerid_api_key = "6510a7ea-fcf5-4d16-90c9-c0734ed720d9",
             get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
             token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
             token_endpoint_basic_auth = "cGF0cmljazpwQCQkdzByZA==",
-        }
-        require"empowerid.proxy"(opts)
     }
+    require"empowerid.proxy"(opts)
+}
 
 
 
@@ -46,8 +47,8 @@ http {
 
         location / {
             access_by_lua_block {
-                require"empowerid.proxy"()
-            }
+            require"empowerid.proxy"()
+        }
             proxy_http_version 1.1;
             proxy_redirect off;
             proxy_set_header X-Forwarded-Host $host;
@@ -65,7 +66,7 @@ http {
 
         location / {
             content_by_lua_block {
-                ngx.say("uri: ", ngx.var.uri)
+            ngx.say("uri: ", ngx.var.uri)
                 local headers, err = ngx.req.get_headers()
                 if not headers then
                     ngx.say("get_headers error: ", err)
@@ -74,13 +75,13 @@ http {
                 for k, v in pairs(headers) do
                     if type(v) == "table" then
                         for i = 1, #v do
-                            mgx.say(k, ": ", v[i])
+                            ngx.say(k, ": ", v[i])
                         end
                     else
-                        mgx.say(k, ": ", v)
+                        ngx.say(k, ": ", v)
                     end
                 end
-            }
+        }
         }
     }
 }

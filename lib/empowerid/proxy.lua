@@ -61,7 +61,7 @@ local function try_get_api_token(opts)
     if not res then
         error(err)
     end
-    print(tprint(res))
+    print(res.body)
 
     local cjson = cjson_module.new()
     local body, err = cjson.decode(res.body)
@@ -89,14 +89,14 @@ local function try_get_results(access_token, body)
     if not res then
         error(err)
     end
-    --print(tprint(res))
+    print(res.body)
 
     local cjson = cjson_module.new()
     local body, err = cjson.decode(res.body)
     if not body then
         error(err)
     end
-    print(tprint(body))
+    --print(tprint(body))
     res.body = body
     return res
 end
@@ -177,27 +177,59 @@ local function regular_refresh_config()
     end
     handler.api_config_json = api_config_json
     handler.api_config = api_config
+    print"config updated"
+    return true
 end
 
-local function regular_refresh_timer()
-    --print"regular_refresh_timer"
-    local ok, err = xpcall( function() regular_refresh_config() end, debug.traceback)
+local function regular_refresh_timer(premature)
+    if premature then
+        return
+    end
+    print("regular_refresh_timer, ngx.worker.id(): ", ngx.worker.id())
+    local ok, err = xpcall( regular_refresh_config, debug.traceback)
     if not ok then
         ngx.log(ngx.ERR, err)
     end
 end
 
-local function main_refresh_timer()
-    --print"main_refresh_timer"
-    local ok, err = xpcall( function() main_refresh_config() end, debug.traceback)
+local function regular_bootstrap_timer(premature)
+    if premature then
+        return
+    end
+    print("regular_bootstrap_timer, ngx.worker.id(): ", ngx.worker.id())
+    local ok, err = xpcall( regular_refresh_config, debug.traceback)
+    if not ok then
+        ngx.log(ngx.ERR, err)
+    end
+
+    if err then
+        print"config obtained, switch to regular refresh"
+        assert(ngx.timer.every(handler.opts.refresh_timeout, regular_refresh_timer))
+        return
+    end
+
+    -- refresh config every second until ready
+    assert(ngx.timer.at(2, regular_bootstrap_timer))
+end
+
+
+local function main_refresh_timer(premature)
+    if premature then
+        return
+    end
+    print("main_refresh_timer , ngx.worker.id(): ",ngx.worker.id())
+    local ok, err = xpcall( main_refresh_config, debug.traceback)
     if not ok then
         ngx.log(ngx.ERR, err)
     end
 end
 
-local function main_bootstrap_timer()
-    --print"main_bootstrap_timer"
-    local ok, err = xpcall( function() main_refresh_config() end, debug.traceback)
+local function main_bootstrap_timer(premature)
+    if premature then
+        return
+    end
+    print("main_bootstrap_timer, ngx.worker.id(): ", ngx.worker.id())
+    local ok, err = xpcall( main_refresh_config, debug.traceback)
     if not ok then
         ngx.log(ngx.ERR, err)
     end
@@ -217,7 +249,7 @@ local function init_worker_handler(opts)
     end
 
     -- TODO set defaults
-    opts.refresh_timeout = opts.refresh_timeout or 300 --seconds
+    opts.refresh_timeout = opts.refresh_timeout or 60 --seconds
 
     -- we got array of GUIDs, for fast access we need a dictionary, convert
     local guids = opts.service_providers_guids
@@ -232,7 +264,7 @@ local function init_worker_handler(opts)
     if ngx.worker.id() == 0 then
         ngx.timer.at(0, main_bootstrap_timer)
     else
-        ngx.timer.every(opts.refresh_timeout, regular_refresh_timer)
+        ngx.timer.at(2, regular_bootstrap_timer)
     end
 end
 
@@ -292,6 +324,8 @@ local function authenticate()
     end
 
     if res.id_token and res.id_token.attrib and res.id_token.attrib.username  and res.id_token.attrib.ReverseProxyPersonID then
+        ngx.req.set_header("X-Empowerid-Username", res.id_token.attrib.ReverseProxyPersonID)
+        ngx.req.set_header("EID-USER", res.id_token.attrib.ReverseProxyPersonID)
         return res.id_token.attrib.username, res.id_token.attrib.ReverseProxyPersonID
     end
 

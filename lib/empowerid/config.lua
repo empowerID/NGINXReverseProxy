@@ -76,13 +76,18 @@ local mt = {
             print("page id: ", id)
             local prefix = row[PG_MatchingMVCPath]
             print("prefix: ", prefix)
-            if type(prefix) == "string" and #prefix > 0 and path:sub(1, #prefix) == prefix then
-                return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
+            if type(prefix) == "string" and #prefix > 0 then
+                if prefix:sub(1,1) ~= "/" then
+                    prefix = "/" .. prefix
+                end
+                if path:sub(1, #prefix) == prefix then
+                    return tonumber(id), row[PG_ProtectedApplicationResourceGUID], (row[PG_ABACCheck] == true or row[PG_ABACCheck] == "true")
+                end
             end
             local pattern = row[PG_MatchingPattern]
             print("pattern: ", pattern)
             if type(pattern) == "string" and #pattern > 0 and ngx.re.find(path, pattern, "jJo") then
-                return tonumber(id), row[PG_ProtectedApplicationResourceGUID], row[PG_ABACCheck] == "true"
+                return tonumber(id), row[PG_ProtectedApplicationResourceGUID], (row[PG_ABACCheck] == true or row[PG_ABACCheck] == "true")
             end
         end
         return false
@@ -112,7 +117,7 @@ _M.new = function()
             local row = results[i]
             assert(#row == ABAC_FIELDS)
             local key = row[ABAC_PERSON_ID] .. ":" .. row[ABAC_PAGE_ID]
-            print(key)
+            --print(key)
             rights[key] = true
         end
         handler = function() return config end
@@ -176,7 +181,6 @@ _M.new = function()
                     pages = {},
                 }
                 config[host].sp = row
-                setmetatable(config[host], mt)
             end
         end
 
@@ -201,7 +205,7 @@ end
 
 _M.open = function(config, scheme_host)
     scheme_host = normalizeHost(scheme_host)
-    return config[scheme_host]
+    return setmetatable(config[scheme_host], mt)
 end
 
 return _M
