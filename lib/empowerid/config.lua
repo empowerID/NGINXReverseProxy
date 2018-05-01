@@ -66,7 +66,7 @@ local mt = {
     end,
 
     allowNoAuthForNonProtectedPaths = function(self)
-        return self.app[APP_AllowNoAuthForNonProtectedPaths] == "true"
+        return self.app[APP_AllowNoAuthForNonProtectedPaths] == true or self.app[APP_AllowNoAuthForNonProtectedPaths] == "true"
     end,
 
     isProtectedPath = function(self, path)

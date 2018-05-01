@@ -357,6 +357,7 @@ local function access_handler()
 
     if not config:doesProtectedPathsExists() then
         if config:allowNoAuthForNonProtectedPaths() then
+            print"no protected pages, allow no auth. for non protected page"
             return
         end
         authenticate()
@@ -369,6 +370,7 @@ local function access_handler()
     print("mustDoLiveCheck: ", mustDoLiveCheck)
     if not protectedPageGuid then
         if config:allowNoAuthForNonProtectedPaths() then
+            print"the page is not protected, allow no auth. for non protected page"
             return
         end
         authenticate()
