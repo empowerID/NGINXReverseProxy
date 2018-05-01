@@ -355,6 +355,10 @@ local function access_handler()
         return fatalError("No configuration for ", scheme_host) -- deny
     end
 
+    if ngx.var.uri == handler.opts.redirect_uri_path then
+        return authenticate()
+    end
+
     if not config:doesProtectedPathsExists() then
         if config:allowNoAuthForNonProtectedPaths() then
             print"no protected pages, allow no auth. for non protected page"
