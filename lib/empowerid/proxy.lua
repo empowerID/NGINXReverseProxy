@@ -360,6 +360,7 @@ local function access_handler()
             print"no protected pages, allow no auth. for non protected page"
             return
         end
+        print"no protected pages, not allow no auth. for non protected page"
         authenticate()
         return
     end
@@ -373,6 +374,7 @@ local function access_handler()
             print"the page is not protected, allow no auth. for non protected page"
             return
         end
+        print"the page is not protected, not allow no auth. for non protected page"
         authenticate()
         return
     end
