@@ -205,6 +205,8 @@ end
 
 _M.open = function(config, scheme_host)
     scheme_host = normalizeHost(scheme_host)
+    print(scheme_host)
+    assert(config[scheme_host])
     return setmetatable(config[scheme_host], mt)
 end
 
