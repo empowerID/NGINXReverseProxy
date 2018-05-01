@@ -17,12 +17,13 @@ http {
     # cache for JWKs
     lua_shared_dict jwks 1m;
 
+    lua_shared_dict sessions 10m;
+
     lua_shared_dict empowerid_proxy_config 10m;
 
     init_worker_by_lua_block {
-    local opts = {
-    redirect_uri_path = "/oauth2callback",
-            discovery = "https://ipg.empowersso.com/oauth/.well-known/openid-configuration",
+        local opts = {
+            redirect_uri_path = "/oauth2callback",
             discovery = "https://sso.empoweriam.com/oauth/.well-known/openid-configuration",
             client_id = os.getenv("CLIENT_ID"),
             client_secret = os.getenv("CLIENT_SECRET"),
@@ -36,9 +37,9 @@ http {
             get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
             token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
             token_endpoint_basic_auth = "cGF0cmljazpwQCQkdzByZA==",
+        }
+        require"empowerid.proxy"(opts)
     }
-    require"empowerid.proxy"(opts)
-}
 
 
 
@@ -46,6 +47,8 @@ http {
         listen 80;
 
         location / {
+            set $session_storage shm;
+
             access_by_lua_block {
                 require"empowerid.proxy"()
             }

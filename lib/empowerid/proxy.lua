@@ -44,7 +44,7 @@ local function try_get_api_token(opts)
     }
 
     body = ngx.encode_args(body)
-    print("try_request_urlencoded, body: ", body)
+    print("try_request_urlencoded, body: ", body, " uri: ", opts.token_endpoint)
 
     local httpc = http.new()
     local res, err = httpc:request_uri(opts.token_endpoint, {
