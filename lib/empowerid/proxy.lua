@@ -333,15 +333,6 @@ local function authenticate()
 end
 
 local function access_handler()
-    -- check for patterns to skip the authorization
-    local page_skip_regexp = handler.opts.page_skip_regexp
-    local uri = ngx.var.uri
-    if page_skip_regexp and #page_skip_regexp > 0 then
-        if ngx.re.match(uri, page_skip_regexp) then
-            return
-        end
-    end
-
     local api_config = handler.api_config
     if not api_config then
         return fatalError("No configuration ready yet")
@@ -357,6 +348,15 @@ local function access_handler()
 
     if ngx.var.uri == handler.opts.redirect_uri_path then
         return authenticate()
+    end
+
+    -- check for patterns to skip the authorization
+    local page_skip_regexp = handler.opts.page_skip_regexp
+    local uri = ngx.var.uri
+    if page_skip_regexp and #page_skip_regexp > 0 then
+        if ngx.re.match(uri, page_skip_regexp) then
+            return
+        end
     end
 
     if not config:doesProtectedPathsExists() then
