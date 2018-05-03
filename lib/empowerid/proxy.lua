@@ -324,8 +324,8 @@ local function authenticate()
     end
 
     if res.id_token and res.id_token.attrib and res.id_token.attrib.username  and res.id_token.attrib.ReverseProxyPersonID then
-        ngx.req.set_header("X-Empowerid-Username", res.id_token.attrib.ReverseProxyPersonID)
-        ngx.req.set_header("EID-USER", res.id_token.attrib.ReverseProxyPersonID)
+        ngx.req.set_header("X-Empowerid-Username", res.id_token.attrib.username)
+        ngx.req.set_header("EID-USER", res.id_token.attrib.username)
         return res.id_token.attrib.username, res.id_token.attrib.ReverseProxyPersonID
     end
 
