@@ -22,7 +22,7 @@ local ABAC_PAGE_ID = 1
 local ABAC_PERSON_ID = 2
 local ABAC_FIELDS = 2
 
--- emulate ngx.re.find to be able to run standalone
+-- emulate ngx.re.find to be able to run standalone, useful for testing
 if not ngx then
     ngx = {}
     ngx.re = {}

@@ -86,7 +86,7 @@ http {
                         ngx.say(k, ": ", v)
                     end
                 end
-        }
+            }
         }
     }
 }

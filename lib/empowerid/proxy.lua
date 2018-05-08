@@ -279,6 +279,16 @@ local function doliveAbacCheck(protectedPageGuid, personName)
     local opts = handler.opts
 
     local shared_config = ngx.shared[SHARED_DICT_NAME]
+    local key = protectedPageGuid .. ":" .. personName
+    local right = shared_config:get(key)
+    if right ~= nil then
+        if right == true then
+            return
+        end
+        ngx.exit(403) -- forbidden
+    end
+
+
     local access_token = shared_config:get("access_token")
 
     local httpc = http.new()
@@ -298,11 +308,15 @@ local function doliveAbacCheck(protectedPageGuid, personName)
     end
     print(tprint(res))
 
+    local expire = opts.abac_right_expiration or 30
+
     local body = res.body
     if body == "true" then
+        shared_config:set(key, true, expire)
         return
     end
 
+    shared_config:set(key, false, expire)
     ngx.exit(403) -- forbidden
 end
 
