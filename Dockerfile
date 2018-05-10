@@ -1,4 +1,4 @@
-FROM openresty/openresty:alpine
+FROM openresty/openresty:1.13.6.1-alpine
 LABEL maintainer="Alexander Altshuler <altexy@gmail.com>"
 
 COPY lib/empowerid/config.lua /usr/local/openresty/lualib/empowerid/config.lua
