@@ -19,4 +19,4 @@ echo "Done"
 docker run --net host --rm -v /var/run/docker.sock:/var/run/docker.sock \
     -v $HOST_GIT_ROOT:$GIT_ROOT \
     --env HOST_GIT_ROOT --env GIT_ROOT \
-    $TEST_RUNNER_IMAGE_ID busted -m=$GIT_ROOT/t/?.lua $GIT_ROOT/t$TEST
+    $TEST_RUNNER_IMAGE_ID busted -v -m=$GIT_ROOT/t/?.lua $GIT_ROOT/t$TEST

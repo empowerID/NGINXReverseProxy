@@ -44,7 +44,7 @@ http {
     # our module shared storage
     lua_shared_dict empowerid_proxy_config 10m;
 
-    # block below is optional, but may inproove performance (TODO - shopuld be tested)    
+    # block below is optional, but may inproove performance (TODO - should be tested)    
     init_by_lua_block {
         require "resty.core"
         collectgarbage("collect")  -- just to collect any garbage
