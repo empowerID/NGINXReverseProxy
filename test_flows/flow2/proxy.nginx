@@ -9,6 +9,7 @@ events {
 env CLIENT_ID;
 env CLIENT_SECRET;
 env AUTH;
+env APIKEY;
 
 http {
     resolver 8.8.8.8 ipv6=off;
@@ -36,7 +37,7 @@ http {
                 "30ECA9FA-2F0B-4D55-9207-320500030E03",
               },
             hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
-            empowerid_api_key = "",
+            empowerid_api_key = os.getenv("APIKEY"),
             get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
             token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
             token_endpoint_basic_auth = os.getenv("AUTH"),
