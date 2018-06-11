@@ -1,0 +1,93 @@
+worker_processes 2;
+
+error_log logs/error.log debug;
+
+events {
+    worker_connections 512;
+}
+
+env CLIENT_ID;
+env CLIENT_SECRET;
+env AUTH;
+env APIKEY;
+env SP_GUID
+
+http {
+    resolver 8.8.8.8 ipv6=off;
+
+    # cache for discovery metadata documents
+    lua_shared_dict discovery 1m;
+    # cache for JWKs
+    lua_shared_dict jwks 1m;
+
+    lua_shared_dict sessions 10m;
+
+    lua_shared_dict empowerid_proxy_config 10m;
+
+    init_worker_by_lua_block {
+        local opts = {
+            redirect_uri_path = "/oauth2callback",
+            discovery = "https://sso.empoweriam.com/oauth/.well-known/openid-configuration",
+            client_id = os.getenv("CLIENT_ID"),
+            client_secret = os.getenv("CLIENT_SECRET"),
+            ssl_verify = "no",
+            logout_path = "/logout",
+            service_providers_guids = {
+               os.getenv("SP_GUID")
+              },
+            hasaccesstopage_endpoint = "https://sso.empoweriam.com/api/services/v1/hasaccess/hasaccesstopage",
+            empowerid_api_key = os.getenv("APIKEY"),
+            get_results_endpoint = "https://sso.empoweriam.com/api/services/v1/ReverseProxy/GetResults",
+            token_endpoint = "https://sso.empoweriam.com/oauth/v2/token",
+            token_endpoint_basic_auth = os.getenv("AUTH"),
+        }
+        require"empowerid.proxy"(opts)
+    }
+
+
+
+    server {
+        listen 80;
+
+        location / {
+            set $session_storage shm;
+
+            access_by_lua_block {
+                require"empowerid.proxy"()
+            }
+            proxy_http_version 1.1;
+            proxy_redirect off;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Connection "";
+
+            proxy_pass http://127.0.0.1:8080;
+        }
+    }
+
+    server {
+        listen 8080;
+
+        location / {
+            content_by_lua_block {
+            ngx.say("uri: ", ngx.var.uri)
+                local headers, err = ngx.req.get_headers()
+                if not headers then
+                    ngx.say("get_headers error: ", err)
+                    return
+                end
+                for k, v in pairs(headers) do
+                    if type(v) == "table" then
+                        for i = 1, #v do
+                            ngx.say(k, ": ", v[i])
+                        end
+                    else
+                        ngx.say(k, ": ", v)
+                    end
+                end
+            }
+        }
+    }
+}
