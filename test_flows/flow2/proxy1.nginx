@@ -10,7 +10,7 @@ env CLIENT_ID;
 env CLIENT_SECRET;
 env AUTH;
 env APIKEY;
-env SP_GUID
+env SP_GUID;
 
 http {
     resolver 8.8.8.8 ipv6=off;
