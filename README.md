@@ -1,11 +1,10 @@
 NGINXReverseProxy
 =================
 
-This is the private repository, developed by Alexander Altshuler (altexy@gmail.com) for Patrick Parker
-
+This is the private repository, developed by EmpowerID (rakesh.reddy@empowerid.com)
 
 This git repository has some submodules, use command below to clone:
 
 ```
-git clone --recursive git@github.com:patrickparker/NGINXReverseProxy.git
+git clone --recursive git@github.com:empowerID/NGINXReverseProxy.git
 ```
